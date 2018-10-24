@@ -16,7 +16,7 @@ advanced_stats <- read_xlsx("NBA Players - Advanced Season Stats (1978-2016).xls
   # ocontrib_2 and dcontrib_2 same as ocontrib and dcontrib
   select(-c(column_s, column_x, truesalary, 
             vorp_3, bpm_3, contrib_3, ovorp_2, dvorp_2,
-            ocontrib_2, dcontrib_2)) %>%
+            ocontrib_2, dcontrib_2, obpm_2, dbpm_2)) %>%
   mutate(production = dollar_to_numeric(production),
          prod_gm = dollar_to_numeric(prod_gm),
          adjusted_production = dollar_to_numeric(adjusted_production),
