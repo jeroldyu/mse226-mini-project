@@ -9,7 +9,11 @@ set.seed(1)
 advanced_stats <- read_xlsx("NBA Players - Advanced Season Stats (1978-2016).xlsx",
                              sheet = "Hoja1") %>%
   filter(year < 2016) %>%
-  select(-c(column_s, column_x, truesalary)) %>%
+  # removing s and x because they are blank
+  # truesalary because its values are incorrect
+  # vorp_3 bc it is identical to vorp_2, same with bpm_3 and bpm_2
+  # contrib_3 removed bc it is identical to contrib
+  select(-c(column_s, column_x, truesalary, vorp_3, bpm_3, contrib_3)) %>%
   mutate(production = dollar_to_numeric(production),
          prod_gm = dollar_to_numeric(prod_gm),
          adjusted_production = dollar_to_numeric(adjusted_production)
