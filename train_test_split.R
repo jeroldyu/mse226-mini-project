@@ -9,13 +9,10 @@ set.seed(1)
 advanced_stats <- read_xlsx("NBA Players - Advanced Season Stats (1978-2016).xlsx",
                              sheet = "Hoja1") %>%
   filter(year < 2016) %>%
-  select(-c(column_s, column_x)) %>%
-  mutate(truesalary = dollar_to_numeric(truesalary),
-         production = dollar_to_numeric(production),
+  select(-c(column_s, column_x, truesalary)) %>%
+  mutate(production = dollar_to_numeric(production),
          prod_gm = dollar_to_numeric(prod_gm),
-         adjusted_production = dollar_to_numeric(adjusted_production),
-         missing_salary = is.na(truesalary),
-         overpaid = truesalary > production
+         adjusted_production = dollar_to_numeric(adjusted_production)
          )
 
 test_idx <- sample(1:nrow(advanced_stats), .2 * nrow(advanced_stats))
