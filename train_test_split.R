@@ -12,11 +12,15 @@ advanced_stats <- read_xlsx("NBA Players - Advanced Season Stats (1978-2016).xls
   # removing s and x because they are blank
   # truesalary because its values are incorrect
   # vorp_3 bc it is identical to vorp_2, same with bpm_3 and bpm_2
-  # contrib_3 removed bc it is identical to contrib
-  select(-c(column_s, column_x, truesalary, vorp_3, bpm_3, contrib_3)) %>%
+  # contrib_3 identical to contrib, ovorp_2 and dvorp_2 same as ovorp and dvorp
+  # ocontrib_2 and dcontrib_2 same as ocontrib and dcontrib
+  select(-c(column_s, column_x, truesalary, 
+            vorp_3, bpm_3, contrib_3, ovorp_2, dvorp_2,
+            ocontrib_2, dcontrib_2)) %>%
   mutate(production = dollar_to_numeric(production),
          prod_gm = dollar_to_numeric(prod_gm),
-         adjusted_production = dollar_to_numeric(adjusted_production)
+         adjusted_production = dollar_to_numeric(adjusted_production),
+         off_playstyle = o_worp > d_worp
          )
 
 test_idx <- sample(1:nrow(advanced_stats), .2 * nrow(advanced_stats))
