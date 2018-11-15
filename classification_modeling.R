@@ -1,7 +1,7 @@
 library(tidyverse)
 library(cvTools)
 library(glmnet)
-library(pROC)
+library(class)
 
 #### 1. Prepare Data ####
 
@@ -25,7 +25,6 @@ val_idx = base::sample(n, floor(0.2*n))
 data_tr = data[-val_idx,]
 data_val = data[val_idx,]
 
-
 set.seed(226)
 folds = cvFolds(nrow(data_tr), K = 10, R = 1)
 fold_ids = folds$which[folds$subsets[,1]]
@@ -48,36 +47,54 @@ lambdas = exp(seq(-10,2,length = 121))
 logcvR = cv.glmnet(X, Y, family = 'binomial', type.measure = 'auc',
                    alpha = 0, foldid = fold_ids, lambda = lambdas)
 
-# others
+# K-Nearest Neighbors
+dtX = select(data_tr, -off_playstyle)
+dvX = select(data_val, -off_playstyle)
+
+set.seed(110)
+ks = c(1, 5, 10, 20, 50, 100, 200)
+knns = lapply(ks, function(x) {
+  knn(dtX, dvX, data_tr$off_playstyle, k = x)
+})
 
 #### 3. Compare Model Errors ####
-# we will use AUC
+# we will use 0-1 loss
 
 response = data_val$off_playstyle
 
+loss01 = function(preds, response) {
+  mean(preds != response)
+}
+
+
 # Logistic
 predglm = predict(logreg, newdata = data_val)
-auc_log = auc(response, predglm) %>% attr('roc') %>% `$`(auc) %>% as.numeric
+l01_log = loss01(predglm > 0, response)
 
 # Logistic Lasso
 X_val = model.matrix(off_playstyle ~ ., data = data_val)
 
 # lambdamin
 pred_lmin = predict(logcvL, X_val, s = 'lambda.min') %>% as.numeric
-auc_lmin = auc(response, pred_lmin) %>% attr('roc') %>% `$`(auc) %>% as.numeric
+l01_lmin = loss01(pred_lmin > 0, response)
 
 # lambda1se
 pred_l1 = predict(logcvL, X_val, s = 'lambda.1se') %>% as.numeric
-auc_l1 = auc(response, pred_l1) %>% attr('roc') %>% `$`(auc) %>% as.numeric
-
+l01_l1 = loss01(pred_l1 > 0, response)
 
 # Logistic Ridge
 # lambdamin
 pred_rmin = predict(logcvR, X_val, s = 'lambda.min') %>% as.numeric
-auc_rmin = auc(response, pred_rmin) %>% attr('roc') %>% `$`(auc) %>% as.numeric
+l01_rmin = loss01(pred_rmin > 0, response)
 
 # lambda1se
 pred_r1 = predict(logcvR, X_val, s = 'lambda.1se') %>% as.numeric
-auc_r1 = auc(response, pred_r1) %>% attr('roc') %>% `$`(auc) %>% as.numeric
+l01_r1 = loss01(pred_r1 > 0, response)
 
+#knns
+l01_knn = vapply(knns, function(x) {
+  loss01(x, response)
+}, 0.0)
+names(l01_knn) = ks
+# best KNN model: k = 50, still a val.set misclassification rate of 0.341 (terrible!)
 
