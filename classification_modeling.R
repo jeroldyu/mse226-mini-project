@@ -1,3 +1,4 @@
+library(MASS)
 library(tidyverse)
 library(cvTools)
 library(glmnet)
@@ -57,6 +58,10 @@ knns = lapply(ks, function(x) {
   knn(dtX, dvX, data_tr$off_playstyle, k = x)
 })
 
+# LDA/QDA
+lda_model = lda(off_playstyle ~ ., data = data_tr)
+qda_model = qda(off_playstyle ~ ., data = data_tr)
+
 #### 3. Compare Model Errors ####
 # we will use 0-1 loss
 
@@ -98,3 +103,83 @@ l01_knn = vapply(knns, function(x) {
 names(l01_knn) = ks
 # best KNN model: k = 50, still a val.set misclassification rate of 0.341 (terrible!)
 
+# LDA and QDA
+pred_lda = predict(lda_model, data_val)$class
+l01_lda = loss01(pred_lda, response)
+
+pred_qda = predict(qda_model, data_val)$class
+l01_qda = loss01(pred_qda, response)
+
+#### 4. Fitting models with interactions ####
+
+# possible interactions
+# position with blocks
+# position with X3par
+# position with steals
+# position with orb/drb/trb
+
+X_int = model.matrix(off_playstyle ~ . + bbref_pos:blk + bbref_pos:X3par +
+                       bbref_pos:stl + bbref_pos:orb + bbref_pos:drb +
+                       bbref_pos:trb,
+                     data = data_tr)
+Y = data_tr$off_playstyle
+
+# Logistic model
+logreg_i = glm(off_playstyle ~ . + bbref_pos:blk + bbref_pos:X3par +
+                 bbref_pos:stl + bbref_pos:orb + bbref_pos:drb +
+                 bbref_pos:trb,
+               family = 'binomial', data = data_tr)
+
+# Logistic model with Lasso
+logcvLi = cv.glmnet(X_int, Y, family = 'binomial', type.measure = 'auc',
+                    alpha = 1, foldid = fold_ids)
+
+# Logistic model with Ridge
+lambdas = exp(seq(-10,2,length = 121))
+logcvRi = cv.glmnet(X_int, Y, family = 'binomial', type.measure = 'auc',
+                    alpha = 0, foldid = fold_ids, lambda = lambdas)
+
+#### 5. Comparing Errors with Interactions ####
+
+# Logistic
+predglm_i = predict(logreg_i, newdata = data_val)
+l01_log_i = loss01(predglm_i > 0, response)
+
+# Logistic Lasso
+X_val_i = model.matrix(off_playstyle ~ . + bbref_pos:blk + bbref_pos:X3par +
+                         bbref_pos:stl + bbref_pos:orb + bbref_pos:drb +
+                         bbref_pos:trb, data = data_val)
+
+# lambdamin
+pred_lmin_i = predict(logcvLi, X_val_i, s = 'lambda.min') %>% as.numeric
+l01_lmini = loss01(pred_lmin_i > 0, response)
+
+# lambda1se
+pred_l1_i = predict(logcvLi, X_val_i, s = 'lambda.1se') %>% as.numeric
+l01_l1i = loss01(pred_l1_i > 0, response)
+
+# Logistic Ridge
+# lambdamin
+pred_rmin_i = predict(logcvRi, X_val_i, s = 'lambda.min') %>% as.numeric
+l01_rmini = loss01(pred_rmin_i > 0, response)
+
+# lambda1se
+pred_r1_i = predict(logcvRi, X_val_i, s = 'lambda.1se') %>% as.numeric
+l01_r1i = loss01(pred_r1_i > 0, response)
+
+#### 6. Estimating Full Model Test Error ####
+
+X_full_i = model.matrix(off_playstyle ~ . + bbref_pos:blk + bbref_pos:X3par +
+                          bbref_pos:stl + bbref_pos:orb + bbref_pos:drb +
+                          bbref_pos:trb, data = data)
+res_full = data$off_playstyle
+
+set.seed(337)
+folds_f = cvFolds(nrow(data), K = 10, R = 1)
+fold_ids_f = folds_f$which[folds_f$subsets[,1]]
+
+logcvLi_f = cv.glmnet(X_full_i, res_full, family = 'binomial', type.measure = 'auc',
+                    alpha = 1, foldid = fold_ids_f)
+
+pred_lmin_i_f = predict(logcvLi_f, X_full_i, s = 'lambda.min') %>% as.numeric
+l01_lmini_f = loss01(pred_lmin_i_f > 0, res_full)
